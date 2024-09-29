@@ -22,6 +22,7 @@ export interface ReservationRequestQuery extends PaginationQuery {
 
 export interface CreateReservationRequestBody {
   tableId: number;
+  duration: number;
   dateTime: string;
   username: string;
   userEmail: string;

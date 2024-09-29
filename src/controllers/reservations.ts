@@ -119,6 +119,7 @@ export const createReservation = async (
     const reservation = await prisma.reservation.create({
       data: {
         dateTime: reservationTime,
+        duration: req.body.duration,
         User: user?.id
           ? { connect: { id: user.id } }
           : { create: { name: req.body.username, email: req.body.userEmail } },
