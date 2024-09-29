@@ -4,11 +4,13 @@ import { prisma } from "..";
 import { logger } from "../../lib/logger";
 import type {
   CreateReservationRequestBody,
+  EditReservationRequestQuery,
+  PatchReservationRequestBody,
   ReservationRequestQuery
 } from "../types";
 
 export const getReservations = async (
-  req: Request<ReservationRequestQuery>,
+  req: Request<{}, any, {}, ReservationRequestQuery>,
   res: Response
 ) => {
   try {
@@ -69,6 +71,31 @@ export const getReservations = async (
   }
 };
 
+export const getReservation = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+
+    const reservation = await prisma.reservation.findUnique({
+      where: { id },
+      include: { User: true, Table: true }
+    });
+
+    if (!reservation) {
+      throw new ResponseError("Reservation not found", 404);
+    }
+
+    res.json(reservation);
+  } catch (error) {
+    logger.error(error);
+
+    if (error instanceof ResponseError) {
+      res.status(error.status).json({ message: error.message });
+    } else {
+      res.status(500).json({ message: "Something went wrong!" });
+    }
+  }
+};
+
 export const createReservation = async (
   req: Request<{}, any, CreateReservationRequestBody>,
   res: Response
@@ -77,9 +104,10 @@ export const createReservation = async (
     const { tableId, dateTime } = req.body;
 
     const reservationTime = new Date(dateTime);
-    const hour = reservationTime.getUTCHours();
+    const startingHour = reservationTime.getUTCHours();
+    const endingHour = reservationTime.getUTCHours() + req.body.duration / 60;
 
-    if (hour < 19 || hour >= 24) {
+    if (startingHour < 19 || startingHour >= 24 || endingHour >= 24) {
       throw new ResponseError(
         "Invalid reservation time. The restaurant is only open from 19:00 to 24:00.",
         400
@@ -132,6 +160,145 @@ export const createReservation = async (
     });
 
     res.status(201).json(reservation);
+  } catch (error) {
+    logger.error(error);
+
+    if (error instanceof ResponseError) {
+      res.status(error.status).json({ message: error.message });
+    } else {
+      res.status(500).json({ message: "Something went wrong" });
+    }
+  }
+};
+
+export const editReservation = async (
+  req: Request<{ id?: number }, any, PatchReservationRequestBody>,
+  res: Response
+) => {
+  try {
+    const id = Number(req.params.id);
+    const newTableId = req.body.tableId;
+    const newDuration = req.body.duration;
+    const newUserEmail = req.body.userEmail;
+    const newUsername = req.body.username;
+    const newDateTime = req.body.dateTime;
+    const newReservationTime = newDateTime ? new Date(newDateTime) : null;
+
+    const oldReservation = await prisma.reservation.findUnique({
+      where: { id }
+    });
+
+    if (!oldReservation) {
+      throw new ResponseError("Reservation not found.", 404);
+    }
+
+    const oldReservationTime = oldReservation.dateTime;
+    const reservationTime = newReservationTime || oldReservationTime;
+    const reservationDuration = newDuration || oldReservation?.duration;
+
+    if (newReservationTime) {
+      const startingHour = newReservationTime.getUTCHours();
+      const endingHour = reservationDuration
+        ? newReservationTime.getUTCHours() + reservationDuration / 60
+        : 0;
+
+      if (startingHour < 19 || startingHour >= 24) {
+        throw new ResponseError(
+          "Invalid reservation time. The restaurant is only open from 19:00 to 24:00.",
+          400
+        );
+      }
+
+      if (endingHour >= 24) {
+        throw new ResponseError(
+          "Invalid reservation duration. The restaurant is only open from 19:00 to 24:00.",
+          400
+        );
+      }
+    }
+
+    if (
+      (newReservationTime || newTableId) &&
+      (newReservationTime !== oldReservationTime ||
+        newTableId !== oldReservation?.tableId)
+    ) {
+      const newReservation = await prisma.reservation.findFirst({
+        where: {
+          tableId: newTableId || oldReservation?.tableId,
+          dateTime: reservationTime
+        }
+      });
+
+      if (newReservation) {
+        throw new ResponseError(
+          "Table is already reserved for the selected time slot.",
+          400
+        );
+      }
+    }
+
+    if (newTableId && newTableId !== oldReservation?.tableId) {
+      const newTable = await prisma.table.findUnique({
+        where: {
+          id: newTableId
+        }
+      });
+
+      if (!newTable) {
+        throw new ResponseError("There is no table with the given ID.", 404);
+      }
+    }
+
+    const newUserData = Boolean(newUserEmail || newUsername);
+
+    const reservation = await prisma.reservation.update({
+      where: { id },
+      data: {
+        dateTime: reservationTime,
+        duration: newDuration || oldReservation?.duration,
+        User: newUserData
+          ? {
+              update: {
+                name: newUsername,
+                email: newUserEmail
+              }
+            }
+          : undefined,
+        Table: newTableId
+          ? {
+              connect: {
+                id: newTableId
+              }
+            }
+          : undefined
+      },
+      include: {
+        User: true,
+        Table: true
+      }
+    });
+
+    res.status(201).json(reservation);
+  } catch (error) {
+    logger.error(error);
+
+    if (error instanceof ResponseError) {
+      res.status(error.status).json({ message: error.message });
+    } else {
+      res.status(500).json({ message: "Something went wrong" });
+    }
+  }
+};
+
+export const deleteReservation = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+
+    const reservation = await prisma.reservation.delete({
+      where: { id }
+    });
+
+    res.status(204).json(reservation);
   } catch (error) {
     logger.error(error);
 

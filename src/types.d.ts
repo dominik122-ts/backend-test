@@ -1,3 +1,5 @@
+import type { ParsedQs } from "express";
+
 export interface PaginationQuery {
   page?: number;
   limit?: number;
@@ -27,3 +29,10 @@ export interface CreateReservationRequestBody {
   username: string;
   userEmail: string;
 }
+
+export interface EditReservationRequestQuery extends ParsedQs {
+  tableId: number;
+  dateTime: string;
+}
+
+export type PatchReservationRequestBody = Partial<CreateReservationRequestBody>;
