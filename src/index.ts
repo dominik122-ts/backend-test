@@ -1,4 +1,4 @@
-import express from "express";
+import express, { ErrorRequestHandler } from "express";
 import { config } from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import users from "./routes/users";

@@ -7,19 +7,8 @@ export const createUser = asyncHandler<{}, {}, CreateUserRequestBody>(
     const createdUser = await prisma.user.create({
       data: {
         name: req.body.name,
-        email: req.body.email,
-        reservations: {
-          create: {
-            dateTime: new Date(req.body.reservationTime).toISOString(),
-            Table: {
-              connect: {
-                id: req.body.reservationTable
-              }
-            }
-          }
-        }
-      },
-      include: { reservations: true }
+        email: req.body.email
+      }
     });
 
     res.json(createdUser);
