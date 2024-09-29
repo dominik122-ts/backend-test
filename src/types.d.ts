@@ -4,3 +4,8 @@ export interface CreateUserRequestBody {
   reservationTime: string;
   reservationTable: number;
 }
+
+export interface PaginationQuery {
+  page?: number;
+  limit?: number;
+}
