@@ -1,9 +1,16 @@
 import { Request, Response } from "express";
 import { ResponseError } from "../ResponseError";
 import { prisma } from "..";
-import { CreateReservationRequestBody } from "../types";
+import { logger } from "../../lib/logger";
+import type {
+  CreateReservationRequestBody,
+  ReservationRequestQuery
+} from "../types";
 
-export const getReservations = async (req: Request, res: Response) => {
+export const getReservations = async (
+  req: Request<ReservationRequestQuery>,
+  res: Response
+) => {
   try {
     const page = Number(req.query.page || 1);
     const limit = Number(req.query.limit || 10);
@@ -15,7 +22,6 @@ export const getReservations = async (req: Request, res: Response) => {
       const start = new Date(startDate as string);
       const end = new Date(endDate as string);
 
-      console.log(start.getTime(), end.getTime());
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         throw new ResponseError(
           "Invalid date format. Please use a valid ISO-8601 date format.",
@@ -53,7 +59,7 @@ export const getReservations = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
 
     if (error instanceof ResponseError) {
       res.status(error.status).json({ message: error.message });
@@ -63,7 +69,10 @@ export const getReservations = async (req: Request, res: Response) => {
   }
 };
 
-export const createReservation = async (req: Request, res: Response) => {
+export const createReservation = async (
+  req: Request<{}, any, CreateReservationRequestBody>,
+  res: Response
+) => {
   try {
     const { tableId, dateTime } = req.body;
 
@@ -91,6 +100,16 @@ export const createReservation = async (req: Request, res: Response) => {
       );
     }
 
+    const table = await prisma.table.findUnique({
+      where: {
+        id: tableId
+      }
+    });
+
+    if (!table) {
+      throw new ResponseError("There is no table with the given ID.", 404);
+    }
+
     const user = await prisma.user.findUnique({
       where: {
         email: req.body.userEmail
@@ -99,18 +118,21 @@ export const createReservation = async (req: Request, res: Response) => {
 
     const reservation = await prisma.reservation.create({
       data: {
-        tableId,
         dateTime: reservationTime,
         User: user?.id
           ? { connect: { id: user.id } }
           : { create: { name: req.body.username, email: req.body.userEmail } },
         Table: { connect: { id: tableId } }
+      },
+      include: {
+        Table: true,
+        User: true
       }
     });
 
     res.status(201).json(reservation);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
 
     if (error instanceof ResponseError) {
       res.status(error.status).json({ message: error.message });

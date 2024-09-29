@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { logger } from "../lib/logger";
 
 const prisma = new PrismaClient();
 
@@ -12,7 +13,7 @@ async function main() {
   });
 
   await Promise.all(tables);
-  console.log("Tables have been seeded.");
+  logger.info("Tables have been seeded.");
 }
 
 main()
@@ -20,7 +21,7 @@ main()
     await prisma.$disconnect();
   })
   .catch(async e => {
-    console.error(e);
+    logger.error(e);
     await prisma.$disconnect();
     process.exit(1);
   });
