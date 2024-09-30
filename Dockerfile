@@ -1,23 +1,21 @@
-# Use the Node.js base image
-FROM node:20
+# Use Node.js LTS as base image
+FROM node:lts-alpine
 
-# Create and set the working directory
+# Set working directory
 WORKDIR /app
 
-# Copy the package.json and package-lock.json files
+# Install app dependencies
 COPY package*.json ./
-
-# Install dependencies
 RUN npm install
 
-# Copy the rest of the application code
+# Copy app files
 COPY . .
 
-# Build the TypeScript code
+# Build TypeScript
 RUN npm run build
 
-# Expose the application port
+# Expose the port
 EXPOSE 3000
 
-# Start the application
+# Start the server
 CMD ["npm", "run", "start"]

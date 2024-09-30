@@ -1,8 +1,28 @@
 version: "3.8"
 services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
   app:
     build: .
     ports:
       - "3000:3000"
+    depends_on:
+      - postgres
     environment:
-      - PORT=3000
+      DATABASE_URL: "postgresql://postgres:password@postgres:5432/mydb"
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    command: sh -c "npx prisma migrate deploy && npm run seed && npm start"
+
+volumes:
+  postgres_data:
